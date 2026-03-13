@@ -12,7 +12,23 @@ class SessionsPopoverVC: NSViewController {
             return NSSize(width: 300, height: 60)
         }
         let h = min(CGFloat(sessions.count) * 64 + 16, 400)
-        return NSSize(width: 300, height: h)
+        // Dynamic width based on longest text row
+        let nameFont = NSFont.systemFont(ofSize: 13, weight: .semibold)
+        let detailFont = NSFont.systemFont(ofSize: 11)
+        let maxTextWidth = sessions.map { s -> CGFloat in
+            let nameW = (s.projectName as NSString).size(withAttributes: [.font: nameFont]).width
+            let statusLabel: String
+            switch s.status {
+            case .idle:    statusLabel = "\(s.agentType.displayName)  💤 idle"
+            case .working: statusLabel = "\(s.agentType.displayName)  ⚡ working"
+            case .waiting: statusLabel = "\(s.agentType.displayName)  👋 waiting for input"
+            }
+            let detailW = (statusLabel as NSString).size(withAttributes: [.font: detailFont]).width
+            return max(nameW, detailW)
+        }.max() ?? 100
+        // 8 (pad) + 36 (icon) + 10 (gap) + text + 8 (gap) + 120 (buttons) + 8 (pad)
+        let w = max(320, min(ceil(maxTextWidth) + 190, 550))
+        return NSSize(width: w, height: h)
     }
 
     override func loadView() {

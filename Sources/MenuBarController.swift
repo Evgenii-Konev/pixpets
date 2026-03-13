@@ -7,6 +7,7 @@ class MenuBarController: NSObject, SessionManagerDelegate {
     private var animTimer: Timer?
     private var animFrame: Int = 0
     private var sessions: [Session] = []
+    private var eventMonitor: Any?
 
     override init() {
         statusItem = NSStatusBar.system.statusItem(withLength: 26)
@@ -91,14 +92,25 @@ class MenuBarController: NSObject, SessionManagerDelegate {
         }
 
         if popover.isShown {
-            popover.close()
+            closePopover()
         } else {
             popover.contentSize = popoverVC.preferredSize
             popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
             popoverVC.startAnimations()
-
-            // Refresh on open
             popoverVC.update(sessions: sessions)
+
+            // Close on any click outside
+            eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+                self?.closePopover()
+            }
+        }
+    }
+
+    private func closePopover() {
+        popover.close()
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
+            eventMonitor = nil
         }
     }
 

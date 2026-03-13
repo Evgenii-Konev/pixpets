@@ -38,7 +38,7 @@ case "$EVENT" in
     exit 0
     ;;
   PreToolUse)          STATUS="waiting" ;;  # Waiting for approval or tool start
-  PostToolUse)         STATUS="working" ;;   # Still in Claude's turn, keep working
+  PostToolUse)         STATUS="working" ;;  # Tool approved and completed
   Stop)                STATUS="idle" ;;      # Claude finished its turn
   UserPromptSubmit)    STATUS="working" ;;   # User sent message, Claude will process
   SessionStart)        STATUS="idle" ;;
