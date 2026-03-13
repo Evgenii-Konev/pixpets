@@ -11,6 +11,7 @@ INPUT=$(cat)
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
 EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty')
+TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
 
 [ -z "$SESSION_ID" ] && exit 0
 
@@ -36,7 +37,7 @@ case "$EVENT" in
     rm -f "$FILE"
     exit 0
     ;;
-  PreToolUse)          STATUS="working" ;;
+  PreToolUse)          STATUS="waiting" ;;  # Waiting for approval or tool execution
   PostToolUse)         STATUS="working" ;;   # Still in Claude's turn, keep working
   Stop)                STATUS="idle" ;;      # Claude finished its turn
   UserPromptSubmit)    STATUS="working" ;;   # User sent message, Claude will process
