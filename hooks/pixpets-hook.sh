@@ -36,10 +36,12 @@ case "$EVENT" in
     rm -f "$FILE"
     exit 0
     ;;
-  PreToolUse)    STATUS="working" ;;
-  PostToolUse)   STATUS="idle" ;;
-  Stop)          STATUS="waiting" ;;
-  *)             STATUS="idle" ;;
+  PreToolUse)          STATUS="working" ;;
+  PostToolUse)         STATUS="working" ;;   # Still in Claude's turn, keep working
+  Stop)                STATUS="idle" ;;      # Claude finished its turn
+  UserPromptSubmit)    STATUS="working" ;;   # User sent message, Claude will process
+  SessionStart)        STATUS="idle" ;;
+  *)                   STATUS="idle" ;;
 esac
 
 CLAUDE_PID=$(find_claude_pid)
@@ -56,5 +58,8 @@ cat > "$FILE" <<EOF
   "updated_at": $(date +%s)
 }
 EOF
+
+# Touch directory to ensure FSEvents fires for file watcher
+touch "$SESSIONS_DIR"
 
 exit 0

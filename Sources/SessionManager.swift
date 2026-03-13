@@ -23,8 +23,8 @@ class SessionManager {
         // Watch sessions directory for changes (push from hooks)
         startFileWatcher()
 
-        // Light poll every 5s to clean up stale PIDs
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+        // Poll every 1s to keep statuses responsive
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.readSessionFiles()
         }
     }

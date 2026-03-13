@@ -119,13 +119,13 @@ class SessionRowView: NSView {
         addSubview(nameLabel)
 
         // Agent + status
-        let statusIcon: String
+        let statusText: String
         switch session.status {
-        case .idle:    statusIcon = "💤"
-        case .working: statusIcon = "⚡"
-        case .waiting: statusIcon = "👀"
+        case .idle:    statusText = "💤 idle"
+        case .working: statusText = "⚡ working"
+        case .waiting: statusText = "👋 waiting for input"
         }
-        let detailLabel = NSTextField(labelWithString: "\(session.agentType.displayName)  \(statusIcon) \(session.status.rawValue)")
+        let detailLabel = NSTextField(labelWithString: "\(session.agentType.displayName)  \(statusText)")
         detailLabel.font = .systemFont(ofSize: 11)
         detailLabel.textColor = .secondaryLabelColor
         detailLabel.translatesAutoresizingMaskIntoConstraints = false
