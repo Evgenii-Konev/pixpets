@@ -95,12 +95,20 @@ class SessionManager {
             let projectPath = sf.project ?? ""
             let updatedAt = sf.updated_at.map { Date(timeIntervalSince1970: Double($0)) } ?? Date()
 
+            let interactive = sf.interactive ?? true
+            var status = SessionStatus(rawValue: sf.status) ?? .idle
+            // Non-interactive (-p) sessions never wait for user input
+            if !interactive && status == .waiting {
+                status = .working
+            }
+
             let session = Session(
                 pid: pid,
                 agentType: agentType,
                 projectPath: projectPath,
                 projectName: (projectPath as NSString).lastPathComponent.isEmpty ? "unknown" : (projectPath as NSString).lastPathComponent,
-                status: SessionStatus(rawValue: sf.status) ?? .idle,
+                status: status,
+                interactive: interactive,
                 sessionId: sf.session_id,
                 updatedAt: updatedAt
             )

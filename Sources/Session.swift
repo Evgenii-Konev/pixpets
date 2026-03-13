@@ -12,6 +12,7 @@ struct Session: Equatable {
     var projectPath: String
     var projectName: String
     var status: SessionStatus
+    var interactive: Bool
     var sessionId: String?
     var updatedAt: Date
 
@@ -27,5 +28,6 @@ struct SessionFile: Codable {
     let project: String?
     let agent: String?
     let session_id: String?
+    let interactive: Bool?
     let updated_at: Int?
 }

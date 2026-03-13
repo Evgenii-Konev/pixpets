@@ -37,7 +37,7 @@ case "$EVENT" in
     rm -f "$FILE"
     exit 0
     ;;
-  PreToolUse)          STATUS="waiting" ;;  # Waiting for approval or tool execution
+  PreToolUse)          STATUS="waiting" ;;  # Waiting for approval or tool start
   PostToolUse)         STATUS="working" ;;   # Still in Claude's turn, keep working
   Stop)                STATUS="idle" ;;      # Claude finished its turn
   UserPromptSubmit)    STATUS="working" ;;   # User sent message, Claude will process
@@ -48,6 +48,13 @@ esac
 CLAUDE_PID=$(find_claude_pid)
 PROJECT_NAME=$(basename "$CWD")
 
+# Detect if session is non-interactive (-p flag)
+CLAUDE_ARGS=$(ps -p "$CLAUDE_PID" -o args= 2>/dev/null)
+INTERACTIVE=true
+if echo "$CLAUDE_ARGS" | grep -qE '(^| )-p( |$)'; then
+  INTERACTIVE=false
+fi
+
 cat > "$FILE" <<EOF
 {
   "pid": $CLAUDE_PID,
@@ -56,6 +63,7 @@ cat > "$FILE" <<EOF
   "project_name": "$PROJECT_NAME",
   "agent": "claude",
   "session_id": "$SESSION_ID",
+  "interactive": $INTERACTIVE,
   "updated_at": $(date +%s)
 }
 EOF
