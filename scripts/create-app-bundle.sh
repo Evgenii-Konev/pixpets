@@ -80,7 +80,7 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" <<PLIST
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSHumanReadableCopyright</key>
-    <string>Copyright 2026 SmartAndPoint. All rights reserved.</string>
+    <string>Copyright 2026 Evgenii Konev. All rights reserved.</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.developer-tools</string>
 </dict>

@@ -4,11 +4,19 @@ set -e
 # Configuration
 DISPLAY_NAME="PixPets"
 BUNDLE_ID="com.smartandpoint.pixpets"
-DEVELOPMENT_TEAM="DEVELOPMENT_TEAM_REDACTED"
-CODE_SIGN_IDENTITY="CODE_SIGN_IDENTITY_REDACTED"
+
+# Required env vars (no defaults — must be set explicitly)
+if [ -z "${DEVELOPMENT_TEAM}" ]; then
+    echo "Error: DEVELOPMENT_TEAM env var is not set." >&2
+    exit 1
+fi
+if [ -z "${CODE_SIGN_IDENTITY}" ]; then
+    echo "Error: CODE_SIGN_IDENTITY env var is not set." >&2
+    exit 1
+fi
 
 # Notarization config (set via env or keychain profile)
-# Create profile: xcrun notarytool store-credentials "pixpets-notary" --apple-id YOUR_EMAIL --team-id DEVELOPMENT_TEAM_REDACTED
+# Create profile: xcrun notarytool store-credentials "pixpets-notary" --apple-id YOUR_EMAIL --team-id $DEVELOPMENT_TEAM
 NOTARY_PROFILE="${NOTARY_PROFILE:-pixpets-notary}"
 
 # Paths

@@ -14,7 +14,10 @@ DMG_PATH="${BUILD_DIR}/${DISPLAY_NAME}.dmg"
 TEMP_DMG="${BUILD_DIR}/temp_${DISPLAY_NAME}.dmg"
 DMG_TEMP_DIR="${BUILD_DIR}/dmg_staging"
 
-CODE_SIGN_IDENTITY="CODE_SIGN_IDENTITY_REDACTED"
+if [ -z "${CODE_SIGN_IDENTITY}" ]; then
+    echo "Error: CODE_SIGN_IDENTITY env var is not set." >&2
+    exit 1
+fi
 
 if [ ! -d "${APP_BUNDLE}" ]; then
     echo "Error: ${APP_BUNDLE} not found. Run create-app-bundle.sh first."
