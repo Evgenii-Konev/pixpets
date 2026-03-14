@@ -90,6 +90,11 @@ PLIST
 # Create PkgInfo
 echo -n "APPL????" > "${APP_BUNDLE}/Contents/PkgInfo"
 
+# Bundle hook script into Resources
+echo "Bundling hook script..."
+cp "${PROJECT_DIR}/hooks/pixpets-hook.sh" "${APP_BUNDLE}/Contents/Resources/pixpets-hook.sh"
+chmod +x "${APP_BUNDLE}/Contents/Resources/pixpets-hook.sh"
+
 echo "=== ${DISPLAY_NAME}.app created at ${APP_BUNDLE} ==="
 echo "Binary: $(file "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}")"
 echo "Size: $(du -sh "${APP_BUNDLE}" | cut -f1)"
