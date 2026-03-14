@@ -3,3 +3,4 @@ dist/
 .omc/
 .DS_Store
 *.xcodeproj/xcuserdata/
+.env

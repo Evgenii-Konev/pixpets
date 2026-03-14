@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Load .env if present
+SCRIPT_DIR_INIT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+[ -f "${SCRIPT_DIR_INIT}/../.env" ] && set -a && source "${SCRIPT_DIR_INIT}/../.env" && set +a
+
 # Configuration
 DISPLAY_NAME="PixPets"
 VOLUME_NAME="PixPets"

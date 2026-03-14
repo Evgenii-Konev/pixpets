@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Load .env if present
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+[ -f "${SCRIPT_DIR}/../.env" ] && set -a && source "${SCRIPT_DIR}/../.env" && set +a
+
 # Configuration
 DISPLAY_NAME="PixPets"
 BUNDLE_ID="com.smartandpoint.pixpets"
