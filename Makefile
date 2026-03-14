@@ -61,3 +61,8 @@ distribute: clean dmg
 	@echo "=== Distribution complete ==="
 	@echo "DMG: dist/$(DISPLAY_NAME).dmg"
 	@echo "Version: $(VERSION) ($(BUILD_NUMBER))"
+
+# --- Release ---
+
+gh-release: distribute
+	./scripts/release.sh $(VERSION)
