@@ -53,6 +53,23 @@ CLAUDE_ARGS=$(ps -p "$CLAUDE_PID" -o args= 2>/dev/null)
 INTERACTIVE=true
 if echo "$CLAUDE_ARGS" | grep -qE '(^| )-p( |$)'; then
   INTERACTIVE=false
+  # For -p agents, try to detect project from process args
+  # Look for project-related paths in args (--mcp-config, --cwd, etc.)
+  PROJECT_DIR=""
+  # Try --mcp-config path first (common pattern: /path/to/project/config/mcp.json)
+  MCP_PATH=$(echo "$CLAUDE_ARGS" | grep -oE '\-\-mcp-config [^ ]+' | head -1 | sed 's/--mcp-config //')
+  if [ -n "$MCP_PATH" ]; then
+    # Walk up from config file to find project root
+    PROJECT_DIR=$(cd "$(dirname "$MCP_PATH")/.." 2>/dev/null && pwd)
+  fi
+  # Fallback: real cwd from lsof
+  if [ -z "$PROJECT_DIR" ] || [ "$PROJECT_DIR" = "/" ]; then
+    PROJECT_DIR=$(lsof -a -p "$CLAUDE_PID" -d cwd -Fn 2>/dev/null | grep '^n/' | head -1 | sed 's/^n//')
+  fi
+  if [ -n "$PROJECT_DIR" ] && [ "$PROJECT_DIR" != "/" ] && [ "$PROJECT_DIR" != "/private/tmp" ]; then
+    CWD="$PROJECT_DIR"
+    PROJECT_NAME=$(basename "$CWD")
+  fi
 fi
 
 cat > "$FILE" <<EOF
