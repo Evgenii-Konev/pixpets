@@ -1,30 +1,67 @@
 #!/bin/bash
-# pixpets hook for Claude Code
+# Universal pixpets hook for all supported agents
 # Writes session status to ~/.pixpets/sessions/<session_id>.json
-# Receives JSON on stdin with: session_id, cwd, hook_event_name, etc.
+# Receives JSON on stdin with agent-specific fields
+#
+# Usage:
+#   pixpets-hook.sh --agent claude   (from ~/.claude/settings.json)
+#   pixpets-hook.sh --agent cursor   (from ~/.cursor/hooks.json)
+#   pixpets-hook.sh --agent codex    (from ~/.codex/hooks.json)
+#   pixpets-hook.sh                  (defaults to claude for backwards compat)
 
 SESSIONS_DIR="$HOME/.pixpets/sessions"
 mkdir -p "$SESSIONS_DIR"
 
+# Parse --agent argument
+AGENT="claude"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --agent) AGENT="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
 INPUT=$(cat)
 
-SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
-EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty')
-TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
+# --- Extract fields based on agent type ---
+
+case "$AGENT" in
+  claude)
+    SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
+    CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
+    EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty')
+    ;;
+  cursor)
+    SESSION_ID=$(echo "$INPUT" | jq -r '.conversation_id // .session_id // empty')
+    CWD=$(echo "$INPUT" | jq -r '.workspace_roots[0] // .cwd // empty')
+    EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty')
+    ;;
+  codex)
+    SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
+    CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
+    EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty')
+    ;;
+  *)
+    SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
+    CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
+    EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty')
+    ;;
+esac
 
 [ -z "$SESSION_ID" ] && exit 0
 
 FILE="$SESSIONS_DIR/$SESSION_ID.json"
 
-# Find the claude process PID by walking up from our PPID
-find_claude_pid() {
+# --- Find agent PID by walking parent process tree ---
+
+find_agent_pid() {
+  local target="$1"
   local p=$PPID
   for _ in 1 2 3 4 5 6 7 8; do
     local comm
     comm=$(ps -p "$p" -o comm= 2>/dev/null)
     case "$(basename "$comm" 2>/dev/null)" in
-      claude) echo "$p"; return ;;
+      $target) echo "$p"; return ;;
     esac
     p=$(ps -p "$p" -o ppid= 2>/dev/null | tr -d ' ')
     [ -z "$p" ] || [ "$p" = "1" ] && break
@@ -32,53 +69,83 @@ find_claude_pid() {
   echo "$PPID"
 }
 
-case "$EVENT" in
-  SessionEnd)
-    rm -f "$FILE"
-    exit 0
-    ;;
-  PreToolUse)          STATUS="waiting" ;;  # Waiting for approval or tool start
-  PostToolUse)         STATUS="working" ;;  # Tool approved and completed
-  Stop)                STATUS="idle" ;;      # Claude finished its turn
-  UserPromptSubmit)    STATUS="working" ;;   # User sent message, Claude will process
-  SessionStart)        STATUS="idle" ;;
-  *)                   STATUS="idle" ;;
+case "$AGENT" in
+  claude) AGENT_PID=$(find_agent_pid "claude") ;;
+  cursor) AGENT_PID=$(find_agent_pid "cursor") ;;
+  codex)  AGENT_PID=$(find_agent_pid "codex") ;;
+  *)      AGENT_PID="$PPID" ;;
 esac
 
-CLAUDE_PID=$(find_claude_pid)
+# --- Map events to status ---
+
+case "$AGENT" in
+  claude)
+    case "$EVENT" in
+      SessionEnd)        rm -f "$FILE"; exit 0 ;;
+      PreToolUse)        STATUS="waiting" ;;
+      PostToolUse)       STATUS="working" ;;
+      Stop)              STATUS="idle" ;;
+      UserPromptSubmit)  STATUS="working" ;;
+      SessionStart)      STATUS="idle" ;;
+      *)                 STATUS="idle" ;;
+    esac
+    ;;
+  cursor)
+    case "$EVENT" in
+      sessionEnd)          rm -f "$FILE"; exit 0 ;;
+      preToolUse)          STATUS="waiting" ;;
+      postToolUse)         STATUS="working" ;;
+      stop)                STATUS="idle" ;;
+      sessionStart)        STATUS="idle" ;;
+      beforeSubmitPrompt)  STATUS="working" ;;
+      *)                   STATUS="idle" ;;
+    esac
+    ;;
+  codex)
+    case "$EVENT" in
+      SessionStart) STATUS="working" ;;
+      Stop)         STATUS="idle" ;;
+      *)            STATUS="idle" ;;
+    esac
+    ;;
+  *)
+    STATUS="idle"
+    ;;
+esac
+
 PROJECT_NAME=$(basename "$CWD")
 
-# Detect if session is non-interactive (-p flag)
-CLAUDE_ARGS=$(ps -p "$CLAUDE_PID" -o args= 2>/dev/null)
+# --- Detect non-interactive sessions (Claude-specific -p flag) ---
+
 INTERACTIVE=true
-if echo "$CLAUDE_ARGS" | grep -qE '(^| )-p( |$)'; then
-  INTERACTIVE=false
-  # For -p agents, try to detect project from process args
-  # Look for project-related paths in args (--mcp-config, --cwd, etc.)
-  PROJECT_DIR=""
-  # Try --mcp-config path first (common pattern: /path/to/project/config/mcp.json)
-  MCP_PATH=$(echo "$CLAUDE_ARGS" | grep -oE '\-\-mcp-config [^ ]+' | head -1 | sed 's/--mcp-config //')
-  if [ -n "$MCP_PATH" ]; then
-    # Walk up from config file to find project root
-    PROJECT_DIR=$(cd "$(dirname "$MCP_PATH")/.." 2>/dev/null && pwd)
-  fi
-  # Fallback: real cwd from lsof
-  if [ -z "$PROJECT_DIR" ] || [ "$PROJECT_DIR" = "/" ]; then
-    PROJECT_DIR=$(lsof -a -p "$CLAUDE_PID" -d cwd -Fn 2>/dev/null | grep '^n/' | head -1 | sed 's/^n//')
-  fi
-  if [ -n "$PROJECT_DIR" ] && [ "$PROJECT_DIR" != "/" ] && [ "$PROJECT_DIR" != "/private/tmp" ]; then
-    CWD="$PROJECT_DIR"
-    PROJECT_NAME=$(basename "$CWD")
+if [ "$AGENT" = "claude" ]; then
+  CLAUDE_ARGS=$(ps -p "$AGENT_PID" -o args= 2>/dev/null)
+  if echo "$CLAUDE_ARGS" | grep -qE '(^| )-p( |$)'; then
+    INTERACTIVE=false
+    PROJECT_DIR=""
+    MCP_PATH=$(echo "$CLAUDE_ARGS" | grep -oE '\-\-mcp-config [^ ]+' | head -1 | sed 's/--mcp-config //')
+    if [ -n "$MCP_PATH" ]; then
+      PROJECT_DIR=$(cd "$(dirname "$MCP_PATH")/.." 2>/dev/null && pwd)
+    fi
+    if [ -z "$PROJECT_DIR" ] || [ "$PROJECT_DIR" = "/" ]; then
+      PROJECT_DIR=$(lsof -a -p "$AGENT_PID" -d cwd -Fn 2>/dev/null | grep '^n/' | head -1 | sed 's/^n//')
+    fi
+    if [ -n "$PROJECT_DIR" ] && [ "$PROJECT_DIR" != "/" ] && [ "$PROJECT_DIR" != "/private/tmp" ]; then
+      CWD="$PROJECT_DIR"
+      PROJECT_NAME=$(basename "$CWD")
+    fi
   fi
 fi
 
+# --- Write session file ---
+
 cat > "$FILE" <<EOF
 {
-  "pid": $CLAUDE_PID,
+  "pid": $AGENT_PID,
   "status": "$STATUS",
   "project": "$CWD",
   "project_name": "$PROJECT_NAME",
-  "agent": "claude",
+  "agent": "$AGENT",
   "session_id": "$SESSION_ID",
   "interactive": $INTERACTIVE,
   "updated_at": $(date +%s)

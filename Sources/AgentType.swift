@@ -12,7 +12,7 @@ enum AgentType: String, CaseIterable {
         case .claude:   return NSColor(red: 0xC9/255, green: 0x64/255, blue: 0x42/255, alpha: 1) // #C96442
         case .codex:    return NSColor(red: 0x1A/255, green: 0x1A/255, blue: 0x1A/255, alpha: 1) // #1A1A1A
         case .cursor:   return NSColor(red: 0x4B/255, green: 0x6B/255, blue: 0xFF/255, alpha: 1) // #4B6BFF
-        case .opencode: return NSColor(red: 0x2D/255, green: 0xA4/255, blue: 0x4E/255, alpha: 1) // #2DA44E
+        case .opencode: return NSColor(red: 0x4A/255, green: 0x4A/255, blue: 0x4A/255, alpha: 1) // #4A4A4A
         case .unknown:  return NSColor(red: 0x88/255, green: 0x88/255, blue: 0x88/255, alpha: 1) // #888888
         }
     }

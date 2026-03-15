@@ -46,12 +46,14 @@ class MenuBarController: NSObject, SessionManagerDelegate {
     private func renderIcon() {
         let grid = animFrame % 2 == 0 ? PixelCharacter.idle : PixelCharacter.blink
 
-        // Use first session's color, or gray if none
+        // Neutral icon: green when any agent is active, white when all idle, gray when no sessions
         let color: NSColor
-        if let first = sessions.first {
-            color = first.agentType.color
-        } else {
+        if sessions.isEmpty {
             color = AgentType.unknown.color
+        } else if sessions.contains(where: { $0.status == .working || $0.status == .waiting }) {
+            color = NSColor(red: 0x4C/255, green: 0xC9/255, blue: 0x4C/255, alpha: 1) // #4CC94C green
+        } else {
+            color = NSColor.white
         }
 
         let image = PixelCharacter.render(grid: grid, color: color)

@@ -22,18 +22,22 @@ private func installHooks() {
 
     // 1. Find the hook script (bundled in .app Resources, or fallback to repo)
     let bundledHook = Bundle.main.resourcePath.map { "\($0)/pixpets-hook.sh" }
+    let bundledPlugin = Bundle.main.resourcePath.map { "\($0)/pixpets-opencode-plugin.js" }
 
     // Resolve symlinks to find the real binary location (swift run uses symlinks)
     let resolvedBinary = (CommandLine.arguments[0] as NSString).resolvingSymlinksInPath
-    let repoHook = URL(fileURLWithPath: resolvedBinary)
+    let repoBase = URL(fileURLWithPath: resolvedBinary)
         .deletingLastPathComponent()
         .deletingLastPathComponent()
         .deletingLastPathComponent()
         .deletingLastPathComponent()
-        .appendingPathComponent("hooks/pixpets-hook.sh").path
+    let repoHook = repoBase.appendingPathComponent("hooks/pixpets-hook.sh").path
+    let repoPlugin = repoBase.appendingPathComponent("hooks/pixpets-opencode-plugin.js").path
 
     // Also check current working directory
-    let cwdHook = fileManager.currentDirectoryPath + "/hooks/pixpets-hook.sh"
+    let cwdBase = fileManager.currentDirectoryPath
+    let cwdHook = cwdBase + "/hooks/pixpets-hook.sh"
+    let cwdPlugin = cwdBase + "/hooks/pixpets-opencode-plugin.js"
 
     let sourceHook: String
     if let bundled = bundledHook, fileManager.fileExists(atPath: bundled) {
@@ -48,9 +52,21 @@ private func installHooks() {
         exit(1)
     }
 
+    let sourcePlugin: String?
+    if let bundled = bundledPlugin, fileManager.fileExists(atPath: bundled) {
+        sourcePlugin = bundled
+    } else if fileManager.fileExists(atPath: repoPlugin) {
+        sourcePlugin = repoPlugin
+    } else if fileManager.fileExists(atPath: cwdPlugin) {
+        sourcePlugin = cwdPlugin
+    } else {
+        sourcePlugin = nil
+    }
+
     // 2. Copy hook to ~/.pixpets/hooks/
     let hookDir = "\(home)/.pixpets/hooks"
     let destHook = "\(hookDir)/pixpets-hook.sh"
+    let destPlugin = "\(hookDir)/pixpets-opencode-plugin.js"
 
     do {
         try fileManager.createDirectory(atPath: hookDir, withIntermediateDirectories: true)
@@ -58,29 +74,77 @@ private func installHooks() {
             try fileManager.removeItem(atPath: destHook)
         }
         try fileManager.copyItem(atPath: sourceHook, toPath: destHook)
-
-        // Make executable
         let attrs: [FileAttributeKey: Any] = [.posixPermissions: 0o755]
         try fileManager.setAttributes(attrs, ofItemAtPath: destHook)
-        print("Installed hook: \(destHook)")
+
+        if let src = sourcePlugin {
+            if fileManager.fileExists(atPath: destPlugin) {
+                try fileManager.removeItem(atPath: destPlugin)
+            }
+            try fileManager.copyItem(atPath: src, toPath: destPlugin)
+        }
     } catch {
         print("Error installing hook: \(error.localizedDescription)")
         exit(1)
     }
 
-    // 3. Update ~/.claude/settings.json
-    let settingsPath = "\(home)/.claude/settings.json"
-    updateClaudeSettings(settingsPath: settingsPath, hookPath: destHook)
+    // 3. Install hooks for each agent
+    print("Installing PixPets hooks...")
+    print("")
+
+    var installedCount = 0
+
+    // --- Claude Code ---
+    let claudeSettingsPath = "\(home)/.claude/settings.json"
+    if fileManager.fileExists(atPath: "\(home)/.claude") {
+        installClaudeHooks(settingsPath: claudeSettingsPath, hookPath: destHook)
+        print("  \u{2713} Claude Code  \u{2014} hooks registered in ~/.claude/settings.json")
+        installedCount += 1
+    } else {
+        print("  \u{2717} Claude Code  \u{2014} ~/.claude/ not found (install Claude Code first)")
+    }
+
+    // --- Cursor ---
+    let cursorDir = "\(home)/.cursor"
+    if fileManager.fileExists(atPath: cursorDir) {
+        installCursorHooks(configDir: cursorDir, hookPath: destHook)
+        print("  \u{2713} Cursor       \u{2014} hooks registered in ~/.cursor/hooks.json")
+        installedCount += 1
+    } else {
+        print("  \u{2717} Cursor       \u{2014} ~/.cursor/ not found (install Cursor first)")
+    }
+
+    // --- Codex ---
+    let codexDir = "\(home)/.codex"
+    if fileManager.fileExists(atPath: codexDir) {
+        installCodexHooks(configDir: codexDir, hookPath: destHook)
+        print("  \u{2713} Codex        \u{2014} hooks registered in ~/.codex/hooks.json")
+        installedCount += 1
+    } else {
+        print("  \u{2717} Codex        \u{2014} ~/.codex/ not found (install Codex CLI first)")
+    }
+
+    // --- OpenCode ---
+    let opencodeDir = "\(home)/.config/opencode"
+    if fileManager.fileExists(atPath: opencodeDir), sourcePlugin != nil {
+        installOpenCodePlugin(configDir: opencodeDir, pluginSource: destPlugin)
+        print("  \u{2713} OpenCode     \u{2014} plugin installed in ~/.config/opencode/plugins/")
+        installedCount += 1
+    } else if sourcePlugin == nil {
+        print("  \u{2717} OpenCode     \u{2014} pixpets-opencode-plugin.js not found")
+    } else {
+        print("  \u{2717} OpenCode     \u{2014} ~/.config/opencode/ not found (install OpenCode first)")
+    }
 
     print("")
-    print("PixPets hooks installed successfully!")
-    print("Claude Code will now report sessions to PixPets.")
+    print("PixPets hooks installed for \(installedCount) agent\(installedCount == 1 ? "" : "s").")
 }
 
-private func updateClaudeSettings(settingsPath: String, hookPath: String) {
+// MARK: - Claude Code Hooks
+
+private func installClaudeHooks(settingsPath: String, hookPath: String) {
     let fileManager = FileManager.default
 
-    // Read existing settings or start fresh
     var settings: [String: Any]
     if let data = fileManager.contents(atPath: settingsPath),
        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
@@ -89,8 +153,6 @@ private func updateClaudeSettings(settingsPath: String, hookPath: String) {
         settings = [:]
     }
 
-    // Build the hook entry in Claude Code's expected format:
-    // { hooks: [{ type: "command", command: "...", async: true }] }
     let hookEntry: [String: Any] = [
         "hooks": [
             [
@@ -101,23 +163,17 @@ private func updateClaudeSettings(settingsPath: String, hookPath: String) {
         ]
     ]
 
-    // Events to hook into
     let events = ["PreToolUse", "PostToolUse", "Stop", "SessionStart", "SessionEnd", "UserPromptSubmit"]
-
-    // Get or create hooks dict
     var hooks = settings["hooks"] as? [String: Any] ?? [:]
 
     for event in events {
         var eventHooks = hooks[event] as? [[String: Any]] ?? []
-
-        // Check if already installed (search inside nested hooks arrays)
         let alreadyInstalled = eventHooks.contains { entry in
             if let innerHooks = entry["hooks"] as? [[String: Any]] {
                 return innerHooks.contains { ($0["command"] as? String)?.contains("pixpets-hook") == true }
             }
             return (entry["command"] as? String)?.contains("pixpets-hook") == true
         }
-
         if !alreadyInstalled {
             eventHooks.append(hookEntry)
             hooks[event] = eventHooks
@@ -126,16 +182,126 @@ private func updateClaudeSettings(settingsPath: String, hookPath: String) {
 
     settings["hooks"] = hooks
 
-    // Write back
     do {
         let dir = (settingsPath as NSString).deletingLastPathComponent
         try fileManager.createDirectory(atPath: dir, withIntermediateDirectories: true)
-
         let data = try JSONSerialization.data(withJSONObject: settings, options: [.prettyPrinted, .sortedKeys])
         try data.write(to: URL(fileURLWithPath: settingsPath))
-        print("Updated Claude settings: \(settingsPath)")
     } catch {
-        print("Error updating Claude settings: \(error.localizedDescription)")
-        print("You may need to manually add the hook to ~/.claude/settings.json")
+        print("  Warning: Could not update Claude settings: \(error.localizedDescription)")
+    }
+}
+
+// MARK: - Cursor Hooks
+
+private func installCursorHooks(configDir: String, hookPath: String) {
+    let fileManager = FileManager.default
+    let hooksPath = "\(configDir)/hooks.json"
+    let command = "\(hookPath) --agent cursor"
+
+    var config: [String: Any]
+    if let data = fileManager.contents(atPath: hooksPath),
+       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+        config = json
+    } else {
+        config = [:]
+    }
+
+    config["version"] = 1
+
+    let events = ["preToolUse", "postToolUse", "stop", "sessionStart", "sessionEnd", "beforeSubmitPrompt"]
+    var hooks = config["hooks"] as? [String: Any] ?? [:]
+
+    for event in events {
+        var eventHooks = hooks[event] as? [[String: Any]] ?? []
+        let alreadyInstalled = eventHooks.contains { entry in
+            return (entry["command"] as? String)?.contains("pixpets-hook") == true
+        }
+        if !alreadyInstalled {
+            let entry: [String: Any] = [
+                "command": command,
+                "type": "command",
+                "timeout": 5
+            ]
+            eventHooks.append(entry)
+            hooks[event] = eventHooks
+        }
+    }
+
+    config["hooks"] = hooks
+
+    do {
+        let data = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
+        try data.write(to: URL(fileURLWithPath: hooksPath))
+    } catch {
+        print("  Warning: Could not update Cursor hooks: \(error.localizedDescription)")
+    }
+}
+
+// MARK: - Codex Hooks
+
+private func installCodexHooks(configDir: String, hookPath: String) {
+    let fileManager = FileManager.default
+    let hooksPath = "\(configDir)/hooks.json"
+    let command = "\(hookPath) --agent codex"
+
+    var config: [String: Any]
+    if let data = fileManager.contents(atPath: hooksPath),
+       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+        config = json
+    } else {
+        config = [:]
+    }
+
+    let events = ["SessionStart", "Stop"]
+    var hooks = config["hooks"] as? [String: Any] ?? [:]
+
+    for event in events {
+        var eventHooks = hooks[event] as? [[String: Any]] ?? []
+        let alreadyInstalled = eventHooks.contains { entry in
+            if let innerHooks = entry["hooks"] as? [[String: Any]] {
+                return innerHooks.contains { ($0["command"] as? String)?.contains("pixpets-hook") == true }
+            }
+            return (entry["command"] as? String)?.contains("pixpets-hook") == true
+        }
+        if !alreadyInstalled {
+            let entry: [String: Any] = [
+                "hooks": [
+                    [
+                        "type": "command",
+                        "command": command
+                    ]
+                ]
+            ]
+            eventHooks.append(entry)
+            hooks[event] = eventHooks
+        }
+    }
+
+    config["hooks"] = hooks
+
+    do {
+        let data = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
+        try data.write(to: URL(fileURLWithPath: hooksPath))
+    } catch {
+        print("  Warning: Could not update Codex hooks: \(error.localizedDescription)")
+    }
+}
+
+// MARK: - OpenCode Plugin
+
+private func installOpenCodePlugin(configDir: String, pluginSource: String) {
+    let fileManager = FileManager.default
+    let pluginsDir = "\(configDir)/plugins"
+    let destPlugin = "\(pluginsDir)/pixpets.js"
+
+    do {
+        try fileManager.createDirectory(atPath: pluginsDir, withIntermediateDirectories: true)
+        if fileManager.fileExists(atPath: destPlugin) {
+            try fileManager.removeItem(atPath: destPlugin)
+        }
+        try fileManager.copyItem(atPath: pluginSource, toPath: destPlugin)
+    } catch {
+        print("  Warning: Could not install OpenCode plugin: \(error.localizedDescription)")
     }
 }

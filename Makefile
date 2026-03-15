@@ -3,7 +3,7 @@
 
 APP_NAME = pixpets
 DISPLAY_NAME = PixPets
-VERSION ?= 1.0.0
+VERSION ?= $(shell cat VERSION 2>/dev/null || echo 0.0.0)
 BUILD_NUMBER ?= 1
 
 .PHONY: all help clean build run release app-bundle sign dmg distribute
