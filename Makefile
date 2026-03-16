@@ -25,11 +25,13 @@ help:
 	@echo "  make sign          Sign + notarize .app"
 	@echo "  make dmg           Create signed DMG"
 	@echo "  make distribute    Full pipeline: build → sign → DMG"
+	@echo "  make publish       Distribute + GitHub release + update homebrew-tap"
 	@echo ""
 	@echo "Options:"
-	@echo "  VERSION=1.0.0      Set version string"
+	@echo "  VERSION=x.y.z      Override version (default: from VERSION file)"
 	@echo "  BUILD_NUMBER=1     Set build number"
 	@echo "  SKIP_NOTARIZE=1    Skip notarization step"
+	@echo "  SKIP_BUILD=1       Skip build in publish (use existing DMG)"
 
 # --- Development ---
 
@@ -64,5 +66,7 @@ distribute: clean dmg
 
 # --- Release ---
 
-gh-release: distribute
+publish:
 	./scripts/release.sh $(VERSION)
+
+gh-release: publish

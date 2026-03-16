@@ -5,3 +5,4 @@ dist/
 *.xcodeproj/xcuserdata/
 .env
 docs/plans/
+docs/evolution_minds.md

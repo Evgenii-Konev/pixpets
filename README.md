@@ -13,7 +13,6 @@ A native macOS menu bar app that gives your AI coding agents a life of their own
 ### Homebrew (recommended)
 
 ```bash
-brew tap Evgenii-Konev/tap
 brew install --cask pixpets
 ```
 
@@ -25,7 +24,7 @@ pixpets --install-hooks
 
 ### Manual
 
-Download the latest `.dmg` from [Releases](https://github.com/Evgenii-Konev/pixelpets/releases), drag to Applications, and run `pixpets --install-hooks`.
+Download the latest `.dmg` from [Releases](https://github.com/Evgenii-Konev/pixpets/releases), drag to Applications, and run `pixpets --install-hooks`.
 
 ## How it works
 
@@ -88,7 +87,7 @@ hooks/
 
 ## Contributing
 
-Found a bug or have a feature idea? [Open an issue](https://github.com/Evgenii-Konev/pixelpets/issues).
+Found a bug or have a feature idea? [Open an issue](https://github.com/Evgenii-Konev/pixpets/issues).
 
 ## License
 
