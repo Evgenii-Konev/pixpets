@@ -243,8 +243,13 @@ private func installCursorHooks(configDir: String, hookPath: String) {
 private func installCodexHooks(configDir: String, hookPath: String) {
     let fileManager = FileManager.default
     let hooksPath = "\(configDir)/hooks.json"
+    let configTomlPath = "\(configDir)/config.toml"
     let command = "\(hookPath) --agent codex"
 
+    // 1. Enable codex_hooks feature flag in config.toml
+    enableCodexHooksFeature(configTomlPath: configTomlPath)
+
+    // 2. Install hooks.json (format: { "hooks": { "SessionStart": [...], "Stop": [...] } })
     var config: [String: Any]
     if let data = fileManager.contents(atPath: hooksPath),
        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
@@ -253,8 +258,8 @@ private func installCodexHooks(configDir: String, hookPath: String) {
         config = [:]
     }
 
-    let events = ["SessionStart", "Stop"]
     var hooks = config["hooks"] as? [String: Any] ?? [:]
+    let events = ["SessionStart", "Stop"]
 
     for event in events {
         var eventHooks = hooks[event] as? [[String: Any]] ?? []
@@ -285,6 +290,33 @@ private func installCodexHooks(configDir: String, hookPath: String) {
         try data.write(to: URL(fileURLWithPath: hooksPath))
     } catch {
         print("  Warning: Could not update Codex hooks: \(error.localizedDescription)")
+    }
+}
+
+private func enableCodexHooksFeature(configTomlPath: String) {
+    let fileManager = FileManager.default
+    var content: String
+    if let data = fileManager.contents(atPath: configTomlPath),
+       let str = String(data: data, encoding: .utf8) {
+        content = str
+    } else {
+        content = ""
+    }
+
+    // Check if codex_hooks is already enabled
+    if content.contains("codex_hooks") { return }
+
+    // Add feature flag and suppress warning
+    if content.contains("[features]") {
+        content = content.replacingOccurrences(of: "[features]", with: "[features]\ncodex_hooks = true")
+    } else {
+        content += "\nsuppress_unstable_features_warning = true\n\n[features]\ncodex_hooks = true\n"
+    }
+
+    do {
+        try content.write(toFile: configTomlPath, atomically: true, encoding: .utf8)
+    } catch {
+        print("  Warning: Could not enable codex_hooks feature: \(error.localizedDescription)")
     }
 }
 
