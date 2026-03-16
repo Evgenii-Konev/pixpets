@@ -1,9 +1,11 @@
 import AppKit
 import Foundation
 
-// Handle --install-hooks before starting the app
+// Install/update hooks on every launch
+installHooks()
+
+// If called with --install-hooks, exit after installation
 if CommandLine.arguments.contains("--install-hooks") {
-    installHooks()
     exit(0)
 }
 

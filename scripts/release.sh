@@ -107,8 +107,8 @@ EOF
 echo ""
 echo "--- Step 5: Updating cask formula in homebrew-tap ---"
 TEMP_TAP=$(mktemp -d)
-gh repo clone "${TAP_REPO}" "${TEMP_TAP}" -- --depth 1 2>/dev/null || \
-    git clone "git@github-stm:${TAP_REPO}.git" "${TEMP_TAP}" --depth 1
+git clone "git@github-stm:${TAP_REPO}.git" "${TEMP_TAP}" --depth 1 2>/dev/null || \
+    gh repo clone "${TAP_REPO}" "${TEMP_TAP}" -- --depth 1
 
 CASK_FILE="${TEMP_TAP}/Casks/pixpets.rb"
 if [ -f "${CASK_FILE}" ]; then
