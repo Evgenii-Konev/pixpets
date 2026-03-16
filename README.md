@@ -55,12 +55,12 @@ Each agent gets its own pixel character with idle, blink, and walk animations â€
 
 ## Supported agents
 
-| Agent | Color |
-|-------|-------|
-| Claude Code | Terracotta `#C96442` |
-| Codex | Purple `#6B5CE7` |
-| Cursor CLI | Blue `#4B6BFF` |
-| OpenCode | Gray `#4A4A4A` |
+| Agent | | Color |
+|-------|---|-------|
+| Claude Code | <img src="docs/pet-claude.png" width="24"> | Terracotta `#C96442` |
+| Codex | <img src="docs/pet-codex.png" width="24"> | Purple `#6B5CE7` |
+| Cursor CLI | <img src="docs/pet-cursor.png" width="24"> | Blue `#4B6BFF` |
+| OpenCode | <img src="docs/pet-opencode.png" width="24"> | Gray `#4A4A4A` |
 
 ## Development
 
