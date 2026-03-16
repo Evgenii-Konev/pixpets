@@ -1,22 +1,11 @@
 <p align="center">
-  <img src="docs/icon.png" width="128" alt="PixPets icon">
+  <img src="docs/social-preview.png" width="640" alt="PixPets">
 </p>
-
-<h1 align="center">PixPets</h1>
 
 <p align="center">
   <a href="https://www.apple.com/macos/"><img src="https://img.shields.io/badge/macOS-13%2B-blue" alt="macOS 13+"></a>
   <a href="https://swift.org"><img src="https://img.shields.io/badge/Swift-5.9-orange" alt="Swift"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
-</p>
-
-<p align="center">
-  Your AI coding agents come alive in the menu bar.<br>
-  Each running session — Claude Code, Codex, Cursor CLI, OpenCode — appears as an animated pixel character.
-</p>
-
-<p align="center">
-  <img src="docs/social-preview.png" width="640" alt="PixPets preview">
 </p>
 
 ## Install
