@@ -1,12 +1,23 @@
-# PixPets
+<p align="center">
+  <img src="docs/icon.png" width="128" alt="PixPets icon">
+</p>
 
-[![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue)](https://www.apple.com/macos/)
-[![Swift](https://img.shields.io/badge/Swift-5.9-orange)](https://swift.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+<h1 align="center">PixPets</h1>
 
-A native macOS menu bar app that gives your AI coding agents a life of their own. Each running agent session — Claude Code, Codex, Cursor CLI, OpenCode — appears as a small animated pixel character living in your menu bar.
+<p align="center">
+  <a href="https://www.apple.com/macos/"><img src="https://img.shields.io/badge/macOS-13%2B-blue" alt="macOS 13+"></a>
+  <a href="https://swift.org"><img src="https://img.shields.io/badge/Swift-5.9-orange" alt="Swift"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
+</p>
 
-<!-- screenshot -->
+<p align="center">
+  Your AI coding agents come alive in the menu bar.<br>
+  Each running session — Claude Code, Codex, Cursor CLI, OpenCode — appears as an animated pixel character.
+</p>
+
+<p align="center">
+  <img src="docs/social-preview.png" width="640" alt="PixPets preview">
+</p>
 
 ## Install
 
@@ -16,15 +27,11 @@ A native macOS menu bar app that gives your AI coding agents a life of their own
 brew install --cask pixpets
 ```
 
-After installing, launch PixPets and install the hooks:
-
-```bash
-pixpets --install-hooks
-```
+Hooks are installed automatically on first launch.
 
 ### Manual
 
-Download the latest `.dmg` from [Releases](https://github.com/Evgenii-Konev/pixpets/releases), drag to Applications, and run `pixpets --install-hooks`.
+Download the latest `.dmg` from [Releases](https://github.com/Evgenii-Konev/pixpets/releases) and drag to Applications.
 
 ## How it works
 
@@ -42,9 +49,9 @@ Each agent gets its own pixel character with idle, blink, and walk animations �
 | Agent | Color |
 |-------|-------|
 | Claude Code | Terracotta `#C96442` |
-| Codex | Near-black `#1A1A1A` |
+| Codex | Purple `#6B5CE7` |
 | Cursor CLI | Blue `#4B6BFF` |
-| OpenCode | Green `#2DA44E` |
+| OpenCode | Gray `#4A4A4A` |
 
 ## Development
 
