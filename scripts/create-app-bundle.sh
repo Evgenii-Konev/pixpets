@@ -90,10 +90,13 @@ PLIST
 # Create PkgInfo
 echo -n "APPL????" > "${APP_BUNDLE}/Contents/PkgInfo"
 
-# Bundle hook script into Resources
-echo "Bundling hook script..."
+# Bundle hook scripts into Resources
+echo "Bundling hook scripts..."
 cp "${PROJECT_DIR}/hooks/pixpets-hook.sh" "${APP_BUNDLE}/Contents/Resources/pixpets-hook.sh"
 chmod +x "${APP_BUNDLE}/Contents/Resources/pixpets-hook.sh"
+if [ -f "${PROJECT_DIR}/hooks/pixpets-opencode-plugin.js" ]; then
+    cp "${PROJECT_DIR}/hooks/pixpets-opencode-plugin.js" "${APP_BUNDLE}/Contents/Resources/pixpets-opencode-plugin.js"
+fi
 
 echo "=== ${DISPLAY_NAME}.app created at ${APP_BUNDLE} ==="
 echo "Binary: $(file "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}")"
