@@ -13,14 +13,34 @@
 ### Homebrew (recommended)
 
 ```bash
+brew tap Evgenii-Konev/tap
 brew install --cask pixpets
 ```
 
-Hooks are installed automatically on first launch.
+Hooks for Claude Code, Codex, and other agents are installed automatically on first launch.
+
+### Update
+
+```bash
+brew upgrade --cask pixpets
+```
+
+If `brew upgrade` says "already installed", pull the latest tap first:
+
+```bash
+brew update
+brew upgrade --cask pixpets
+```
 
 ### Manual
 
 Download the latest `.dmg` from [Releases](https://github.com/Evgenii-Konev/pixpets/releases) and drag to Applications.
+
+### Uninstall
+
+```bash
+brew uninstall --cask pixpets
+```
 
 ## How it works
 
