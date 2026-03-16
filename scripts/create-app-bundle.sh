@@ -90,6 +90,12 @@ PLIST
 # Create PkgInfo
 echo -n "APPL????" > "${APP_BUNDLE}/Contents/PkgInfo"
 
+# Bundle app icon
+echo "Bundling app icon..."
+if [ -f "${PROJECT_DIR}/AppIcon.icns" ]; then
+    cp "${PROJECT_DIR}/AppIcon.icns" "${APP_BUNDLE}/Contents/Resources/AppIcon.icns"
+fi
+
 # Bundle hook scripts into Resources
 echo "Bundling hook scripts..."
 cp "${PROJECT_DIR}/hooks/pixpets-hook.sh" "${APP_BUNDLE}/Contents/Resources/pixpets-hook.sh"
