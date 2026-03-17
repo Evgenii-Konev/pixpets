@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-let appVersion = "1.3.0"
+let appVersion = "0.4.0"
 
 // Install/update hooks on every launch
 installHooks()
