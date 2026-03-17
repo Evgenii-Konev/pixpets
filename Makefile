@@ -24,8 +24,8 @@ help:
 	@echo "  make app-bundle    Create .app bundle (universal binary)"
 	@echo "  make sign          Sign + notarize .app"
 	@echo "  make dmg           Create signed DMG"
-	@echo "  make distribute    Full pipeline: build → sign → DMG"
-	@echo "  make publish       Distribute + GitHub release + update homebrew-tap"
+	@echo "  make distribute    Full pipeline: build → sign → DMG → GitHub release → homebrew-tap"
+	@echo "  make publish       Legacy: uses scripts/release.sh"
 	@echo ""
 	@echo "Options:"
 	@echo "  VERSION=x.y.z      Override version (default: from VERSION file)"
@@ -59,12 +59,9 @@ dmg: sign
 	./scripts/create-dmg.sh
 
 distribute: clean dmg
-	@echo ""
-	@echo "=== Distribution complete ==="
-	@echo "DMG: dist/$(DISPLAY_NAME).dmg"
-	@echo "Version: $(VERSION) ($(BUILD_NUMBER))"
+	@./scripts/publish-release.sh $(VERSION)
 
-# --- Release ---
+# --- Release (legacy) ---
 
 publish:
 	./scripts/release.sh $(VERSION)
