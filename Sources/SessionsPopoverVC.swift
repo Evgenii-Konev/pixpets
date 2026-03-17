@@ -13,6 +13,13 @@ class SessionsPopoverVC: NSViewController {
         }
         let rowHeight: CGFloat = sessions.map { $0.task != nil ? 72 : 56 }.reduce(0, +)
         let h = min(rowHeight + CGFloat(sessions.count) * 4 + 16, 400)
+
+        // Count children per parent for label sizing
+        var childCount: [Int32: Int] = [:]
+        for s in sessions {
+            if let pp = s.parentPid { childCount[pp, default: 0] += 1 }
+        }
+
         // Dynamic width based on longest text row
         let nameFont = NSFont.systemFont(ofSize: 13, weight: .semibold)
         let detailFont = NSFont.systemFont(ofSize: 11)
@@ -20,11 +27,17 @@ class SessionsPopoverVC: NSViewController {
         let maxTextWidth = sessions.map { s -> CGFloat in
             let nameW = (s.projectName as NSString).size(withAttributes: [.font: nameFont]).width
             let mode = s.interactive ? "" : " 🤖"
+            let childTag: String
+            if let pp = s.parentPid {
+                childTag = (childCount[pp] ?? 1) >= 2 ? "  👥 team" : "  ⛏ sub-agent"
+            } else {
+                childTag = ""
+            }
             let statusLabel: String
             switch s.status {
-            case .idle:    statusLabel = "\(s.agentType.displayName)\(mode)  💤 idle"
-            case .working: statusLabel = "\(s.agentType.displayName)\(mode)  ⚡ working"
-            case .waiting: statusLabel = "\(s.agentType.displayName)\(mode)  👋 waiting for input"
+            case .idle:    statusLabel = "\(s.agentType.displayName)\(mode)\(childTag)  💤 idle"
+            case .working: statusLabel = "\(s.agentType.displayName)\(mode)\(childTag)  ⚡ working"
+            case .waiting: statusLabel = "\(s.agentType.displayName)\(mode)\(childTag)  👋 waiting for input"
             }
             let detailW = (statusLabel as NSString).size(withAttributes: [.font: detailFont]).width
             let taskW = s.task.map { ($0 as NSString).size(withAttributes: [.font: taskFont]).width } ?? 0
@@ -89,8 +102,19 @@ class SessionsPopoverVC: NSViewController {
         for rv in rowViews { rv.removeFromSuperview() }
         rowViews.removeAll()
 
+        // Count children per parent to distinguish sub-agent vs team
+        var childCount: [Int32: Int] = [:]
+        for s in sessions {
+            if let pp = s.parentPid {
+                childCount[pp, default: 0] += 1
+            }
+        }
+
         for session in sessions {
-            let row = SessionRowView(session: session)
+            let isChild = session.parentPid != nil
+            let siblingCount = session.parentPid.map { childCount[$0] ?? 1 } ?? 0
+            let childLabel: String? = isChild ? (siblingCount >= 2 ? "👥 team" : "⛏ sub-agent") : nil
+            let row = SessionRowView(session: session, childLabel: childLabel)
             stackView.addArrangedSubview(row)
             rowViews.append(row)
         }
@@ -107,12 +131,19 @@ class SessionsPopoverVC: NSViewController {
 
 class SessionRowView: NSView {
     private let session: Session
+    private let childLabel: String?
     private let charImageView = NSImageView()
     private var animTimer: Timer?
     private var animFrame: Int = 0
 
-    init(session: Session) {
+    private var isSubAgent: Bool { childLabel != nil }
+    private var charPixelSize: Int { isSubAgent ? 2 : 3 }
+    private var charViewSize: CGFloat { isSubAgent ? 22 : 36 }
+    private var leadingIndent: CGFloat { isSubAgent ? 28 : 8 }
+
+    init(session: Session, childLabel: String? = nil) {
         self.session = session
+        self.childLabel = childLabel
         super.init(frame: .zero)
         setupViews()
     }
@@ -127,7 +158,7 @@ class SessionRowView: NSView {
         // Character image
         charImageView.translatesAutoresizingMaskIntoConstraints = false
         charImageView.imageScaling = .scaleProportionallyUpOrDown
-        let charImage = PixelCharacter.render(grid: PixelCharacter.idle, color: session.agentType.color, pixelSize: 3)
+        let charImage = PixelCharacter.render(grid: PixelCharacter.idle, color: session.agentType.color, pixelSize: charPixelSize)
         charImageView.image = charImage
         addSubview(charImageView)
 
@@ -146,7 +177,8 @@ class SessionRowView: NSView {
         case .waiting: statusText = "👋 waiting for input"
         }
         let modeTag = session.interactive ? "" : " 🤖"
-        let detailLabel = NSTextField(labelWithString: "\(session.agentType.displayName)\(modeTag)  \(statusText)")
+        let childTag = childLabel.map { "  \($0)" } ?? ""
+        let detailLabel = NSTextField(labelWithString: "\(session.agentType.displayName)\(modeTag)\(childTag)  \(statusText)")
         detailLabel.font = .systemFont(ofSize: 11)
         detailLabel.textColor = .secondaryLabelColor
         detailLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -176,10 +208,10 @@ class SessionRowView: NSView {
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: rowHeight),
 
-            charImageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            charImageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: leadingIndent),
             charImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            charImageView.widthAnchor.constraint(equalToConstant: 36),
-            charImageView.heightAnchor.constraint(equalToConstant: 36),
+            charImageView.widthAnchor.constraint(equalToConstant: charViewSize),
+            charImageView.heightAnchor.constraint(equalToConstant: charViewSize),
 
             nameLabel.leadingAnchor.constraint(equalTo: charImageView.trailingAnchor, constant: 10),
             nameLabel.topAnchor.constraint(equalTo: topAnchor, constant: 8),
@@ -226,15 +258,16 @@ class SessionRowView: NSView {
     func startAnimation() {
         animTimer?.invalidate()
 
+        let pxSize = charPixelSize
         switch session.status {
         case .idle:
             animTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
                 guard let self else { return }
                 self.charImageView.image = PixelCharacter.render(
-                    grid: PixelCharacter.blink, color: self.session.agentType.color, pixelSize: 3)
+                    grid: PixelCharacter.blink, color: self.session.agentType.color, pixelSize: pxSize)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                     self.charImageView.image = PixelCharacter.render(
-                        grid: PixelCharacter.idle, color: self.session.agentType.color, pixelSize: 3)
+                        grid: PixelCharacter.idle, color: self.session.agentType.color, pixelSize: pxSize)
                 }
             }
         case .working:
@@ -243,7 +276,7 @@ class SessionRowView: NSView {
                 self.animFrame += 1
                 let grid = self.animFrame % 2 == 0 ? PixelCharacter.walkA : PixelCharacter.walkB
                 self.charImageView.image = PixelCharacter.render(
-                    grid: grid, color: self.session.agentType.color, pixelSize: 3)
+                    grid: grid, color: self.session.agentType.color, pixelSize: pxSize)
             }
         case .waiting:
             animTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
@@ -251,7 +284,7 @@ class SessionRowView: NSView {
                 self.animFrame += 1
                 let grid = self.animFrame % 2 == 0 ? PixelCharacter.idle : PixelCharacter.blink
                 self.charImageView.image = PixelCharacter.render(
-                    grid: grid, color: self.session.agentType.color, pixelSize: 3)
+                    grid: grid, color: self.session.agentType.color, pixelSize: pxSize)
             }
         }
     }

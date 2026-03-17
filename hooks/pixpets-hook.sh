@@ -93,15 +93,87 @@ case "$AGENT" in
   *)      AGENT_PID="$PPID" ;;
 esac
 
+# --- Handle sub-agent / team member registration ---
+# The main agent's hook fires for Agent/TeamCreate tool calls.
+# Sub-agents run inside the same process and don't fire their own hooks,
+# so we register them here from the parent's PreToolUse/PostToolUse events.
+
+PROJECT_NAME=$(basename "$CWD")
+
+case "$TOOL_NAME" in
+  Agent)
+    SUB_NAME=$(echo "$INPUT" | jq -r '.tool_input.name // empty')
+    SUB_DESC=$(echo "$INPUT" | jq -r '.tool_input.description // empty')
+    SUB_BG=$(echo "$INPUT" | jq -r '.tool_input.run_in_background // false')
+    SUB_TEAM=$(echo "$INPUT" | jq -r '.tool_input.team_name // empty')
+
+    if [ -n "$SUB_NAME" ] || [ -n "$SUB_DESC" ]; then
+      SUB_LABEL="${SUB_NAME:-$SUB_DESC}"
+      # Sanitize for use in filename
+      SUB_ID=$(printf '%s' "$SUB_LABEL" | tr 'A-Z ' 'a-z-' | tr -cd 'a-z0-9-' | cut -c1-40)
+      SUB_FILE="$SESSIONS_DIR/${SESSION_ID}-sub-${SUB_ID}.json"
+
+      case "$EVENT" in
+        PreToolUse)
+          # Also set parent's task to show sub-agent spawn activity
+          TASK="⛏ ${SUB_DESC:-$SUB_NAME}"
+          SUB_TASK_JSON=$(printf '%s' "${SUB_DESC:-$SUB_NAME}" | jq -Rs .)
+          cat > "$SUB_FILE" <<SUBEOF
+{
+  "pid": $AGENT_PID,
+  "parent_pid": $AGENT_PID,
+  "status": "working",
+  "project": "$CWD",
+  "project_name": "$PROJECT_NAME",
+  "agent": "$AGENT",
+  "session_id": "${SESSION_ID}-sub-${SUB_ID}",
+  "interactive": false,
+  "task": $SUB_TASK_JSON,
+  "updated_at": $(date +%s)
+}
+SUBEOF
+          touch "$SESSIONS_DIR"
+          ;;
+        PostToolUse)
+          # Foreground agents: PostToolUse fires after completion → remove
+          # Background agents: PostToolUse fires immediately after launch → keep
+          if [ "$SUB_BG" != "true" ] && [ -z "$SUB_TEAM" ]; then
+            rm -f "$SUB_FILE"
+            touch "$SESSIONS_DIR"
+          fi
+          ;;
+      esac
+    fi
+    ;;
+esac
+
 # --- Map events to status ---
 
 case "$AGENT" in
   claude)
     case "$EVENT" in
-      SessionEnd)        rm -f "$FILE"; exit 0 ;;
+      SessionEnd)
+        rm -f "$FILE"
+        # Clean up all sub-agent sessions for this parent
+        for sf in "$SESSIONS_DIR/${SESSION_ID}-sub-"*.json; do
+          [ -f "$sf" ] && rm -f "$sf"
+        done
+        touch "$SESSIONS_DIR"
+        exit 0
+        ;;
       PreToolUse)        STATUS="waiting" ;;
       PostToolUse)       STATUS="working" ;;
-      Stop)              STATUS="idle" ;;
+      Stop)
+        STATUS="idle"
+        # Clean up sub-agent sessions older than 60s (likely completed)
+        NOW=$(date +%s)
+        for sf in "$SESSIONS_DIR/${SESSION_ID}-sub-"*.json; do
+          [ -f "$sf" ] || continue
+          SUB_UPDATED=$(jq -r '.updated_at // 0' "$sf" 2>/dev/null)
+          AGE=$((NOW - SUB_UPDATED))
+          [ "$AGE" -gt 60 ] && rm -f "$sf"
+        done
+        ;;
       UserPromptSubmit)  STATUS="working" ;;
       SessionStart)      STATUS="idle" ;;
       *)                 STATUS="idle" ;;
@@ -129,8 +201,6 @@ case "$AGENT" in
     STATUS="idle"
     ;;
 esac
-
-PROJECT_NAME=$(basename "$CWD")
 
 # --- Resolve task: preserve previous if not set, clear on Stop ---
 

@@ -55,6 +55,22 @@ struct PixelCharacter {
         return grid
     }()
 
+    // Chat bubble badge (💬) — 5x4
+    static let chatBubble: [[Int]] = [
+        [0,1,1,1,0],
+        [1,1,1,1,1],
+        [0,1,1,1,0],
+        [1,0,0,0,0],
+    ]
+
+    // Sleep badge (💤) — 5x4
+    static let sleepZzz: [[Int]] = [
+        [1,1,1,0,0],
+        [0,0,1,0,0],
+        [0,1,0,0,0],
+        [0,1,1,1,0],
+    ]
+
     static func render(grid: [[Int]], color: NSColor, pixelSize: Int = 2) -> NSImage {
         let gridSize = 18
         let w = gridSize * pixelSize
@@ -104,6 +120,94 @@ struct PixelCharacter {
                     height: pixelSize
                 )
                 rect.fill()
+            }
+        }
+
+        NSGraphicsContext.restoreGraphicsState()
+
+        let image = NSImage(size: NSSize(width: 18, height: 18))
+        image.addRepresentation(rep)
+        image.isTemplate = false
+        return image
+    }
+
+    static func renderWithBadge(
+        grid: [[Int]], color: NSColor,
+        badge: [[Int]]?, badgeColor: NSColor,
+        pixelSize: Int = 2
+    ) -> NSImage {
+        let gridSize = 18
+        let w = gridSize * pixelSize
+        let h = gridSize * pixelSize
+
+        let safeColor = color.usingColorSpace(.sRGB) ?? color
+        let darkColor = NSColor(
+            srgbRed: safeColor.redComponent * 0.35,
+            green: safeColor.greenComponent * 0.35,
+            blue: safeColor.blueComponent * 0.35,
+            alpha: 1
+        )
+
+        let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: w,
+            pixelsHigh: h,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .calibratedRGB,
+            bytesPerRow: w * 4,
+            bitsPerPixel: 32
+        )!
+
+        let ctx = NSGraphicsContext(bitmapImageRep: rep)!
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = ctx
+
+        // Clear to transparent
+        NSColor.clear.setFill()
+        NSRect(x: 0, y: 0, width: w, height: h).fill()
+
+        // Draw main grid
+        for row in 0..<gridSize {
+            for col in 0..<gridSize {
+                let val = grid[row][col]
+                guard val != 0 else { continue }
+
+                let c: NSColor = val == 2 ? darkColor : safeColor
+                c.setFill()
+
+                let rect = NSRect(
+                    x: col * pixelSize,
+                    y: (gridSize - 1 - row) * pixelSize,
+                    width: pixelSize,
+                    height: pixelSize
+                )
+                rect.fill()
+            }
+        }
+
+        // Draw badge overlay in top-right corner
+        if let badge = badge {
+            let safeBadge = badgeColor.usingColorSpace(.sRGB) ?? badgeColor
+            safeBadge.setFill()
+            let badgeRows = badge.count
+            let badgeCols = badge.first?.count ?? 0
+            let offsetCol = gridSize - badgeCols  // right-aligned
+            let offsetRow = 0                      // top-aligned
+
+            for row in 0..<badgeRows {
+                for col in 0..<badgeCols {
+                    guard badge[row][col] != 0 else { continue }
+                    let rect = NSRect(
+                        x: (offsetCol + col) * pixelSize,
+                        y: (gridSize - 1 - (offsetRow + row)) * pixelSize,
+                        width: pixelSize,
+                        height: pixelSize
+                    )
+                    rect.fill()
+                }
             }
         }
 

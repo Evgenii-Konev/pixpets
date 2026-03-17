@@ -71,12 +71,14 @@ class SessionManager {
         let fm = FileManager.default
         guard let files = try? fm.contentsOfDirectory(atPath: sessionsDir) else { return [] }
 
-        // Parse all session files, grouped by PID
         struct Parsed {
             let session: Session
             let path: String
         }
-        var byPID: [Int32: [Parsed]] = [:]
+
+        // Root sessions grouped by PID for dedup; sub-agents kept individually
+        var rootsByPID: [Int32: [Parsed]] = [:]
+        var subAgents: [Parsed] = []
 
         for file in files where file.hasSuffix(".json") {
             let path = "\(sessionsDir)/\(file)"
@@ -103,6 +105,7 @@ class SessionManager {
             }
 
             let task: String? = sf.task.flatMap { $0.isEmpty ? nil : $0 }
+            let parentPid: Int32? = sf.parent_pid.map { Int32($0) }
 
             let session = Session(
                 pid: pid,
@@ -113,25 +116,60 @@ class SessionManager {
                 interactive: interactive,
                 sessionId: sf.session_id,
                 task: task,
+                parentPid: parentPid,
                 updatedAt: updatedAt
             )
 
-            byPID[pid, default: []].append(Parsed(session: session, path: path))
+            let parsed = Parsed(session: session, path: path)
+
+            if parentPid != nil {
+                // Sub-agent: don't deduplicate by PID (shares parent's PID)
+                subAgents.append(parsed)
+            } else {
+                rootsByPID[pid, default: []].append(parsed)
+            }
         }
 
-        // Deduplicate: keep newest per PID, remove stale files
-        var result: [Session] = []
-        for (_, entries) in byPID {
+        // Deduplicate root sessions: keep newest per PID, remove stale files
+        var roots: [Session] = []
+        for (_, entries) in rootsByPID {
             let sorted = entries.sorted { $0.session.updatedAt > $1.session.updatedAt }
             if let newest = sorted.first {
-                result.append(newest.session)
+                roots.append(newest.session)
             }
-            // Clean up older duplicate files
             for stale in sorted.dropFirst() {
                 try? fm.removeItem(atPath: stale.path)
             }
         }
 
-        return result.sorted { $0.pid < $1.pid }
+        // Clean up orphaned sub-agents whose parent session file no longer exists
+        let rootPIDs = Set(roots.map { $0.pid })
+        var liveSubAgents: [Session] = []
+        for sub in subAgents {
+            let hasParent = sub.session.parentPid.map { rootPIDs.contains($0) } ?? false
+            if !hasParent {
+                // Parent session ended — clean up orphan
+                try? fm.removeItem(atPath: sub.path)
+            } else {
+                liveSubAgents.append(sub.session)
+            }
+        }
+
+        // Order: roots sorted by PID, sub-agents grouped under their parent
+        let sortedRoots = roots.sorted { $0.pid < $1.pid }
+        var ordered: [Session] = []
+        for root in sortedRoots {
+            ordered.append(root)
+            let children = liveSubAgents
+                .filter { $0.parentPid == root.pid }
+                .sorted { ($0.sessionId ?? "") < ($1.sessionId ?? "") }
+            ordered.append(contentsOf: children)
+        }
+        // Append orphaned sub-agents (parent already exited)
+        let placedSessionIds = Set(ordered.compactMap { $0.sessionId })
+        for s in liveSubAgents where !placedSessionIds.contains(s.sessionId ?? "") {
+            ordered.append(s)
+        }
+        return ordered
     }
 }
