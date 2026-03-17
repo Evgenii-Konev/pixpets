@@ -23,6 +23,23 @@ done
 
 INPUT=$(cat)
 
+# --- Extract task info from tool_name/tool_input ---
+
+TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
+TASK=""
+
+case "$TOOL_NAME" in
+  TaskCreate|TaskUpdate)
+    TASK=$(echo "$INPUT" | jq -r '.tool_input.activeForm // .tool_input.subject // empty')
+    ;;
+  TodoWrite)
+    TASK=$(echo "$INPUT" | jq -r '
+      [.tool_input.todos[]? | select(.status == "in_progress")]
+      | first
+      | (.activeForm // .content // empty)' 2>/dev/null)
+    ;;
+esac
+
 # --- Extract fields based on agent type ---
 
 case "$AGENT" in
@@ -115,6 +132,14 @@ esac
 
 PROJECT_NAME=$(basename "$CWD")
 
+# --- Resolve task: preserve previous if not set, clear on Stop ---
+
+if [ "$STATUS" = "idle" ]; then
+  TASK=""
+elif [ -z "$TASK" ] && [ -f "$FILE" ]; then
+  TASK=$(jq -r '.task // empty' "$FILE" 2>/dev/null)
+fi
+
 # --- Detect non-interactive sessions (Claude-specific -p flag) ---
 
 INTERACTIVE=true
@@ -139,6 +164,11 @@ fi
 
 # --- Write session file ---
 
+TASK_JSON="null"
+if [ -n "$TASK" ]; then
+  TASK_JSON=$(printf '%s' "$TASK" | jq -Rs .)
+fi
+
 cat > "$FILE" <<EOF
 {
   "pid": $AGENT_PID,
@@ -148,6 +178,7 @@ cat > "$FILE" <<EOF
   "agent": "$AGENT",
   "session_id": "$SESSION_ID",
   "interactive": $INTERACTIVE,
+  "task": $TASK_JSON,
   "updated_at": $(date +%s)
 }
 EOF

@@ -14,6 +14,7 @@ struct Session: Equatable {
     var status: SessionStatus
     var interactive: Bool
     var sessionId: String?
+    var task: String?
     var updatedAt: Date
 
     static func == (lhs: Session, rhs: Session) -> Bool {
@@ -29,5 +30,6 @@ struct SessionFile: Codable {
     let agent: String?
     let session_id: String?
     let interactive: Bool?
+    let task: String?
     let updated_at: Int?
 }

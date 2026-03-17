@@ -102,6 +102,8 @@ class SessionManager {
                 status = .working
             }
 
+            let task: String? = sf.task.flatMap { $0.isEmpty ? nil : $0 }
+
             let session = Session(
                 pid: pid,
                 agentType: agentType,
@@ -110,6 +112,7 @@ class SessionManager {
                 status: status,
                 interactive: interactive,
                 sessionId: sf.session_id,
+                task: task,
                 updatedAt: updatedAt
             )
 

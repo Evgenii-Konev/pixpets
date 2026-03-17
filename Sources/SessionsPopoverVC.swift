@@ -11,10 +11,12 @@ class SessionsPopoverVC: NSViewController {
         if sessions.isEmpty {
             return NSSize(width: 300, height: 60)
         }
-        let h = min(CGFloat(sessions.count) * 64 + 16, 400)
+        let rowHeight: CGFloat = sessions.map { $0.task != nil ? 72 : 56 }.reduce(0, +)
+        let h = min(rowHeight + CGFloat(sessions.count) * 4 + 16, 400)
         // Dynamic width based on longest text row
         let nameFont = NSFont.systemFont(ofSize: 13, weight: .semibold)
         let detailFont = NSFont.systemFont(ofSize: 11)
+        let taskFont = NSFont.systemFont(ofSize: 10)
         let maxTextWidth = sessions.map { s -> CGFloat in
             let nameW = (s.projectName as NSString).size(withAttributes: [.font: nameFont]).width
             let mode = s.interactive ? "" : " 🤖"
@@ -25,7 +27,8 @@ class SessionsPopoverVC: NSViewController {
             case .waiting: statusLabel = "\(s.agentType.displayName)\(mode)  👋 waiting for input"
             }
             let detailW = (statusLabel as NSString).size(withAttributes: [.font: detailFont]).width
-            return max(nameW, detailW)
+            let taskW = s.task.map { ($0 as NSString).size(withAttributes: [.font: taskFont]).width } ?? 0
+            return max(nameW, max(detailW, taskW))
         }.max() ?? 100
         // 8 (pad) + 36 (icon) + 10 (gap) + text + 8 (gap) + 120 (buttons) + 8 (pad)
         let w = max(320, min(ceil(maxTextWidth) + 190, 550))
@@ -149,6 +152,16 @@ class SessionRowView: NSView {
         detailLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(detailLabel)
 
+        // Task label (third line, shown only when task is present)
+        let hasTask = session.task != nil
+        let taskLabel = NSTextField(labelWithString: session.task ?? "")
+        taskLabel.font = .systemFont(ofSize: 10)
+        taskLabel.textColor = .tertiaryLabelColor
+        taskLabel.lineBreakMode = .byTruncatingTail
+        taskLabel.translatesAutoresizingMaskIntoConstraints = false
+        taskLabel.isHidden = !hasTask
+        addSubview(taskLabel)
+
         // Action buttons
         let focusBtn = makeButton(title: "Focus", action: #selector(focusTerminal))
         let finderBtn = makeButton(title: "Finder", action: #selector(openInFinder))
@@ -158,8 +171,10 @@ class SessionRowView: NSView {
         btnStack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(btnStack)
 
+        let rowHeight: CGFloat = hasTask ? 72 : 56
+
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: 56),
+            heightAnchor.constraint(equalToConstant: rowHeight),
 
             charImageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
             charImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -173,6 +188,10 @@ class SessionRowView: NSView {
             detailLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
             detailLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 2),
             detailLabel.trailingAnchor.constraint(lessThanOrEqualTo: btnStack.leadingAnchor, constant: -8),
+
+            taskLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
+            taskLabel.topAnchor.constraint(equalTo: detailLabel.bottomAnchor, constant: 1),
+            taskLabel.trailingAnchor.constraint(lessThanOrEqualTo: btnStack.leadingAnchor, constant: -8),
 
             btnStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
             btnStack.centerYAnchor.constraint(equalTo: centerYAnchor),
