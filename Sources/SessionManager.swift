@@ -87,8 +87,8 @@ class SessionManager {
 
             let pid = Int32(sf.pid)
 
-            // Check if process is still alive
-            guard kill(pid, 0) == 0 else {
+            // Check if process is still alive (not dead or zombie)
+            guard self.isProcessAlive(pid) else {
                 try? fm.removeItem(atPath: path)
                 continue
             }
@@ -172,5 +172,52 @@ class SessionManager {
             ordered.append(s)
         }
         return ordered
+    }
+
+    // MARK: - Process liveness (zombie detection)
+
+    private func isProcessAlive(_ pid: Int32) -> Bool {
+        guard kill(pid, 0) == 0 else { return false }
+
+        // Check for zombie state via ps
+        let state = runPS("-p", "\(pid)", "-o", "state=")
+        if state.isEmpty || state.hasPrefix("Z") { return false }
+
+        // Check for orphaned ACP processes: walk parent chain looking for .app bundle.
+        // If we reach PID 1 (init) without finding a .app, the process is orphaned
+        // (its host app was reloaded/killed).
+        var p = pid
+        for _ in 0..<10 {
+            let ppidStr = runPS("-p", "\(p)", "-o", "ppid=")
+            guard let ppid = Int32(ppidStr), ppid > 1 else {
+                // Reached init (PID 1) or invalid — orphaned
+                return false
+            }
+            let comm = runPS("-p", "\(ppid)", "-o", "comm=")
+            if comm.contains(".app") {
+                return true  // Found host app — alive
+            }
+            p = ppid
+        }
+        // Exhausted walk without finding .app — could be terminal session (login shell → terminal)
+        // For safety, consider alive
+        return true
+    }
+
+    private func runPS(_ args: String...) -> String {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/ps")
+        task.arguments = args
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.standardError = FileHandle.nullDevice
+        do {
+            try task.run()
+            task.waitUntilExit()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        } catch {
+            return ""
+        }
     }
 }
