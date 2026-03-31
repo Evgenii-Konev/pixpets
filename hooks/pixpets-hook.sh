@@ -93,6 +93,36 @@ case "$AGENT" in
   *)      AGENT_PID="$PPID" ;;
 esac
 
+# --- Detect host app (terminal/IDE that runs the agent) ---
+
+find_host_app() {
+  local p="$1"
+  local best=""
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    p=$(ps -p "$p" -o ppid= 2>/dev/null | tr -d ' ')
+    [ -z "$p" ] || [ "$p" = "1" ] && break
+    local comm
+    comm=$(ps -p "$p" -o comm= 2>/dev/null)
+    case "$comm" in
+      *".app/"*|*".app")
+        # Extract outermost .app bundle: /Applications/Obsidian.app/Contents/... → Obsidian
+        local app_path
+        app_path=$(echo "$comm" | sed 's|\.app/.*|.app|; s|\.app$||')
+        best=$(basename "$app_path")
+        # Keep walking — prefer the outermost .app (main app, not helper)
+        ;;
+    esac
+  done
+  [ -n "$best" ] && echo "$best"
+}
+
+HOST_APP=$(find_host_app "$AGENT_PID")
+if [ -n "$HOST_APP" ]; then
+  HOST_APP_JSON="\"$HOST_APP\""
+else
+  HOST_APP_JSON="null"
+fi
+
 # --- Handle sub-agent / team member registration ---
 # The main agent's hook fires for Agent/TeamCreate tool calls.
 # Sub-agents run inside the same process and don't fire their own hooks,
@@ -248,6 +278,7 @@ cat > "$FILE" <<EOF
   "agent": "$AGENT",
   "session_id": "$SESSION_ID",
   "interactive": $INTERACTIVE,
+  "host_app": $HOST_APP_JSON,
   "task": $TASK_JSON,
   "updated_at": $(date +%s)
 }

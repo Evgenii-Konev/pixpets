@@ -117,6 +117,7 @@ class SessionManager {
                 sessionId: sf.session_id,
                 task: task,
                 parentPid: parentPid,
+                hostApp: sf.host_app,
                 updatedAt: updatedAt
             )
 

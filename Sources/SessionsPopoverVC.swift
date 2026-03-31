@@ -33,11 +33,12 @@ class SessionsPopoverVC: NSViewController {
             } else {
                 childTag = ""
             }
+            let host = s.hostApp.map { " · \($0)" } ?? ""
             let statusLabel: String
             switch s.status {
-            case .idle:    statusLabel = "\(s.agentType.displayName)\(mode)\(childTag)  💤 idle"
-            case .working: statusLabel = "\(s.agentType.displayName)\(mode)\(childTag)  ⚡ working"
-            case .waiting: statusLabel = "\(s.agentType.displayName)\(mode)\(childTag)  👋 waiting for input"
+            case .idle:    statusLabel = "\(s.agentType.displayName)\(host)\(mode)\(childTag)  💤 idle"
+            case .working: statusLabel = "\(s.agentType.displayName)\(host)\(mode)\(childTag)  ⚡ working"
+            case .waiting: statusLabel = "\(s.agentType.displayName)\(host)\(mode)\(childTag)  👋 waiting for input"
             }
             let detailW = (statusLabel as NSString).size(withAttributes: [.font: detailFont]).width
             let taskW = s.task.map { ($0 as NSString).size(withAttributes: [.font: taskFont]).width } ?? 0
@@ -177,8 +178,9 @@ class SessionRowView: NSView {
         case .waiting: statusText = "👋 waiting for input"
         }
         let modeTag = session.interactive ? "" : " 🤖"
+        let hostTag = session.hostApp.map { " · \($0)" } ?? ""
         let childTag = childLabel.map { "  \($0)" } ?? ""
-        let detailLabel = NSTextField(labelWithString: "\(session.agentType.displayName)\(modeTag)\(childTag)  \(statusText)")
+        let detailLabel = NSTextField(labelWithString: "\(session.agentType.displayName)\(hostTag)\(modeTag)\(childTag)  \(statusText)")
         detailLabel.font = .systemFont(ofSize: 11)
         detailLabel.textColor = .secondaryLabelColor
         detailLabel.translatesAutoresizingMaskIntoConstraints = false
