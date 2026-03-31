@@ -1,6 +1,6 @@
 cask "pixpets" do
-  version "0.5.0"
-  sha256 "0753561292ceedd24fa6d907899acbdda9203bb39af42f0f64321d93eb2372fb"
+  version "0.6.0"
+  sha256 "5d1df596a0e5a74fba704b1e68f47b33885a44e5f12dff6942abfac81ad21635"
 
   url "https://github.com/Evgenii-Konev/pixpets/releases/download/v#{version}/PixPets-#{version}.dmg"
   name "PixPets"
